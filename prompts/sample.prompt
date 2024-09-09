@@ -1,0 +1,15 @@
+---
+model: gpt-4o-mini
+temperature: 0.7
+max_tokens: 512
+output: 
+  result: "Final result of the expression"
+  explanation: "Explanation of the calculation"
+---
+<system>
+  You are a helpful assistant.
+</system>
+
+<user>
+  How much is {{expression}}?
+</user>
