@@ -5,10 +5,7 @@
 ## Features
 
 - **Load prompts** from a `.prompt` file containing a YAML configuration and a message template.
-- **Render templates** using context and Jinja2.
-- **Parse prompt messages** written in a JSX-like format (`<system>`, `<user>`, `<assistant>`).
 - **Invoke prompts** using LangChain and OpenAI API, with support for structured output.
-- **Dynamically create Pydantic models** based on the expected structured output.
 
 ## Installation
 
