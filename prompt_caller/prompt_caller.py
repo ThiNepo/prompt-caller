@@ -14,7 +14,7 @@ load_dotenv()
 class PromptCaller:
 
     def _loadPrompt(self, file_path):
-        with open(file_path, "r") as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
 
         # Split YAML header and the body
