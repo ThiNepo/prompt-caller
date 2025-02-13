@@ -1,6 +1,7 @@
 ---
 model: o3-mini
-max_tokens: 512
+reasoning_effort: high
+max_tokens: 2048
 output: 
   result: "Final result of the expression"
   explanation: "Explanation of the calculation"

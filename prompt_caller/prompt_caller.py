@@ -1,12 +1,17 @@
 import os
 import re
 
+import requests
 import yaml
 from dotenv import load_dotenv
 from jinja2 import Template
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from PIL import Image
 from pydantic import BaseModel, Field, create_model
+
+from io import BytesIO
+import base64
 
 load_dotenv()
 
@@ -32,7 +37,7 @@ class PromptCaller:
 
     def _parseJSXBody(self, body):
         elements = []
-        tag_pattern = r"<(system|user|assistant)>(.*?)</\1>"
+        tag_pattern = r"<(system|user|assistant|image)>(.*?)</\1>"
 
         matches = re.findall(tag_pattern, body, re.DOTALL)
 
@@ -40,6 +45,15 @@ class PromptCaller:
             elements.append({"role": tag, "content": content.strip()})
 
         return elements
+
+    def getImageBase64(self, url: str) -> str:
+        response = requests.get(url)
+        response.raise_for_status()
+        img = Image.open(BytesIO(response.content))
+        buffered = BytesIO()
+        img.save(buffered, format="PNG")
+        img_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        return f"data:image/png;base64,{img_base64}"
 
     def loadPrompt(self, promptName, context=None):
         # initialize context
@@ -62,6 +76,23 @@ class PromptCaller:
 
             if message.get("role") == "user":
                 messages.append(HumanMessage(content=message.get("content")))
+
+            if message.get("role") == "image":
+                base64_image = message.get("content")
+
+                if base64_image.startswith("http"):
+                    base64_image = self.getImageBase64(base64_image)
+
+                messages.append(
+                    HumanMessage(
+                        content=[
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": base64_image},
+                            }
+                        ]
+                    )
+                )
 
         return configuration, messages
 

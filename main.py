@@ -4,6 +4,6 @@ from prompt_caller import PromptCaller
 
 ai = PromptCaller()
 
-response = ai.call("sample-o3", {"expression": "3+8/9"})
+response = ai.call("sample-image", {"expression": "3+8/9"})
 
 print(response)

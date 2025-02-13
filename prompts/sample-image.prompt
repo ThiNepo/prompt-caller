@@ -1,0 +1,19 @@
+---
+model: gpt-4o-mini
+temperature: 0.7
+max_tokens: 512
+output: 
+  result: "The answer to the question"
+  explanation: "Explanation for the answer"
+---
+<system>
+  You are a helpful assistant.
+</system>
+
+<user>
+  O que é essa imagem?
+</user>
+
+<image>
+https://thumbor.novaescola.org.br/SR2cJJih-FyEZ7W966Wz6K_q8_M=/nova-escola-producao.s3.amazonaws.com/jjkaFcRG2Ankn58fT24hmNF4eSwrZwUNhVAXHbf8gHusDtGDEFt7kt2grfwH/costura-matematica1.jpg
+</image>
