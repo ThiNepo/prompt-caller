@@ -68,6 +68,36 @@ In this example:
 - The `expression` value `3+8/9` is injected into the user message.
 - The model will respond with both the result of the expression and an explanation, as specified in the `output` section of the prompt.
 
+3. **Using the agent feature:**  
+
+   The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Here’s an example where we evaluate a mathematical expression using Python’s `eval` in a safe execution environment:
+
+   ```python
+   from prompt_caller import PromptCaller
+
+   ai = PromptCaller()
+
+   def evaluate_expression(expression: str):
+       """
+       Evaluate a math expression using eval.
+       """
+       safe_globals = {"__builtins__": None}
+       return eval(expression, safe_globals, {})
+
+   response = ai.agent(
+       "sample-agent", {"expression": "3+8/9"}, tools=[evaluate_expression]
+   )
+
+   print(response)
+   ```
+
+   In this example:
+
+   - The `agent` method is used to process the prompt while integrating external tools.
+   - The `evaluate_expression` function evaluates the mathematical expression securely.
+   - The response includes the processed result based on the prompt and tool execution.
+   
+
 ## How It Works
 
 1. **\_loadPrompt:** Loads the prompt file, splits the YAML header from the body, and parses them.
