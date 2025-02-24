@@ -5,7 +5,8 @@ import requests
 import yaml
 from dotenv import load_dotenv
 from jinja2 import Template
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.tools import tool
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from PIL import Image
 from pydantic import BaseModel, Field, create_model
@@ -124,3 +125,79 @@ class PromptCaller:
         response = chat.invoke(messages)
 
         return response
+
+    def agent(self, promptName, context=None, tools=None, allowed_steps=3):
+
+        configuration, messages = self.loadPrompt(promptName, context)
+
+        output = None
+
+        if "output" in configuration:
+            output = configuration.get("output")
+            configuration.pop("output")
+
+            for message in messages:
+                if isinstance(message, SystemMessage):
+                    message.content += "\nOnly use the tool DynamicModel when providing an output call."
+                    break
+
+        chat = ChatOpenAI(**configuration)
+
+        # Register the tools
+        if tools is None:
+            tools = []
+
+        # Transform functions in tools
+        tools = [tool(t) for t in tools]
+
+        tools_dict = {t.name.lower(): t for t in tools}
+
+        if output:
+            dynamicModel = self.createPydanticModel(output)
+
+        tools.extend([dynamicModel])
+        tools_dict["dynamicmodel"] = dynamicModel
+
+        chat = chat.bind_tools(tools)
+
+        try:
+            # First LLM invocation
+            response = chat.invoke(messages)
+            messages.append(response)
+
+            steps = 0
+            while response.tool_calls and steps < allowed_steps:
+                for tool_call in response.tool_calls:
+                    tool_name = tool_call["name"].lower()
+
+                    # If it's the final formatting tool, validate and return
+                    if tool_name == "dynamicmodel":
+                        return dynamicModel.model_validate(tool_call["args"])
+
+                    selected_tool = tools_dict.get(tool_name)
+                    if not selected_tool:
+                        raise ValueError(f"Unknown tool: {tool_name}")
+
+                    # Invoke the selected tool with provided arguments
+                    tool_response = selected_tool.invoke(tool_call)
+                    messages.append(tool_response)
+
+                # If the latest message is a ToolMessage, re-invoke the LLM
+                if isinstance(messages[-1], ToolMessage):
+                    response = chat.invoke(messages)
+                    messages.append(response)
+                else:
+                    break
+
+                steps += 1
+
+            # Final LLM call if the last message is still a ToolMessage
+            if isinstance(messages[-1], ToolMessage):
+                response = chat.invoke(messages)
+                messages.append(response)
+
+            return response
+
+        except Exception as e:
+            # Replace with appropriate logging in production
+            raise RuntimeError("Error during agent process") from e
