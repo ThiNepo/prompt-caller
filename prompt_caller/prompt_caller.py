@@ -19,6 +19,9 @@ load_dotenv()
 
 class PromptCaller:
 
+    def __init__(self, promptPath="prompts"):
+        self.promptPath = promptPath
+
     def _loadPrompt(self, file_path):
         with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
@@ -62,7 +65,7 @@ class PromptCaller:
             context = {}
 
         configuration, template = self._loadPrompt(
-            os.path.join("prompts", f"{promptName}.prompt")
+            os.path.join(self.promptPath, f"{promptName}.prompt")
         )
 
         template = self._renderTemplate(template, context)
@@ -126,14 +129,16 @@ class PromptCaller:
 
         return response
 
-    def agent(self, promptName, context=None, tools=None, allowed_steps=3):
+    def agent(
+        self, promptName, context=None, tools=None, output=None, allowed_steps=10
+    ):
 
         configuration, messages = self.loadPrompt(promptName, context)
 
-        output = None
+        dynamicOutput = None
 
-        if "output" in configuration:
-            output = configuration.get("output")
+        if output is None and "output" in configuration:
+            dynamicOutput = configuration.get("output")
             configuration.pop("output")
 
             for message in messages:
@@ -153,10 +158,13 @@ class PromptCaller:
         tools_dict = {t.name.lower(): t for t in tools}
 
         if output:
+            tools.extend([output])
+            tools_dict[output.__name__.lower()] = output
+        elif dynamicOutput:
             dynamicModel = self.createPydanticModel(output)
 
-        tools.extend([dynamicModel])
-        tools_dict["dynamicmodel"] = dynamicModel
+            tools.extend([dynamicModel])
+            tools_dict["dynamicmodel"] = dynamicModel
 
         chat = chat.bind_tools(tools)
 
@@ -171,8 +179,11 @@ class PromptCaller:
                     tool_name = tool_call["name"].lower()
 
                     # If it's the final formatting tool, validate and return
-                    if tool_name == "dynamicmodel":
+                    if dynamicOutput and tool_name == "dynamicmodel":
                         return dynamicModel.model_validate(tool_call["args"])
+
+                    if output and tool_name == output.__name__.lower():
+                        return output.model_validate(tool_call["args"])
 
                     selected_tool = tools_dict.get(tool_name)
                     if not selected_tool:
@@ -199,5 +210,6 @@ class PromptCaller:
             return response
 
         except Exception as e:
+            print(e)
             # Replace with appropriate logging in production
             raise RuntimeError("Error during agent process") from e
