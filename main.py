@@ -14,7 +14,7 @@ def evaluate_expression(expression: str):
 
 
 response = ai.agent(
-    "sample-agent", {"expression": "3+8/9"}, tools=[evaluate_expression]
+    "sample-gemini-nostructure", {"expression": "3+8/9"}, tools=[evaluate_expression]
 )
 
 print(response)

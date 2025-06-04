@@ -8,6 +8,7 @@ from jinja2 import Template
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from PIL import Image
 from pydantic import BaseModel, Field, create_model
 
@@ -49,6 +50,14 @@ class PromptCaller:
             elements.append({"role": tag, "content": content.strip()})
 
         return elements
+
+    def _createChat(self, configuration):
+        if configuration.get("model") is not None and configuration.get(
+            "model"
+        ).startswith("gemini"):
+            return ChatGoogleGenerativeAI(**configuration)
+        else:
+            return ChatOpenAI(**configuration)
 
     def getImageBase64(self, url: str) -> str:
         response = requests.get(url)
@@ -119,7 +128,7 @@ class PromptCaller:
             output = configuration.get("output")
             configuration.pop("output")
 
-        chat = ChatOpenAI(**configuration)
+        chat = self._createChat(configuration)
 
         if output:
             dynamicModel = self.createPydanticModel(output)
@@ -146,7 +155,7 @@ class PromptCaller:
                     message.content += "\nOnly use the tool DynamicModel when providing an output call."
                     break
 
-        chat = ChatOpenAI(**configuration)
+        chat = self._createChat(configuration)
 
         # Register the tools
         if tools is None:
@@ -161,7 +170,7 @@ class PromptCaller:
             tools.extend([output])
             tools_dict[output.__name__.lower()] = output
         elif dynamicOutput:
-            dynamicModel = self.createPydanticModel(output)
+            dynamicModel = self.createPydanticModel(dynamicOutput)
 
             tools.extend([dynamicModel])
             tools_dict["dynamicmodel"] = dynamicModel

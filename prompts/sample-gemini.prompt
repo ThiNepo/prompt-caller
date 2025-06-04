@@ -1,0 +1,13 @@
+---
+model: gemini-2.5-flash-preview-04-17
+output: 
+  result: "Final result of the expression"
+  explanation: "Explanation of the calculation"
+---
+<system>
+  You are a helpful assistant.
+</system>
+
+<user>
+  How much is {{expression}}?
+</user>
