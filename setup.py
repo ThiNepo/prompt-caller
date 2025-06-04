@@ -35,7 +35,7 @@ class BdistWheelCommand(bdist_wheel):
 
 setuptools.setup(
     name="prompt_caller",
-    version="0.1.2",
+    version="0.1.3",
     author="Thiago Nepomuceno",
     author_email="thiago@neps.academy",
     description="This package is responsible for calling prompts in a specific format. It uses LangChain and OpenAI API",
@@ -54,6 +54,7 @@ setuptools.setup(
         "python-dotenv>=1.0.1",
         "Jinja2>=3.1.4",
         "langchain-openai>=0.3.5",
+        "langchain-google-genai==2.1.5",
         "openai>=1.63.0",
         "pillow>=11.0.0",
     ],
