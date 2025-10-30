@@ -19,7 +19,6 @@ load_dotenv()
 
 
 class PromptCaller:
-
     def __init__(self, promptPath="prompts"):
         self.promptPath = promptPath
 
@@ -40,14 +39,33 @@ class PromptCaller:
         template = Template(body)
         return template.render(context)
 
+    import re
+
     def _parseJSXBody(self, body):
         elements = []
-        tag_pattern = r"<(system|user|assistant|image)>(.*?)</\1>"
+        # 1. Regex to find tags, attributes string, and content
+        tag_pattern = r"<(system|user|assistant|image)([^>]*)>(.*?)</\1>"
+
+        # 2. Regex to find key="value" pairs within the attributes string
+        attr_pattern = r'(\w+)\s*=\s*"(.*?)"'
 
         matches = re.findall(tag_pattern, body, re.DOTALL)
 
-        for tag, content in matches:
-            elements.append({"role": tag, "content": content.strip()})
+        for tag, attrs_string, content in matches:
+            # 3. Parse the attributes string (e.g., ' tag="image 1"') into a dict
+            attributes = {}
+            if attrs_string:
+                attr_matches = re.findall(attr_pattern, attrs_string)
+                for key, value in attr_matches:
+                    attributes[key] = value
+
+            element = {"role": tag, "content": content.strip()}
+
+            # 4. Add the attributes to our element dict if they exist
+            if attributes:
+                element["attributes"] = attributes
+
+            elements.append(element)
 
         return elements
 
@@ -96,16 +114,18 @@ class PromptCaller:
                 if base64_image.startswith("http"):
                     base64_image = self.getImageBase64(base64_image)
 
-                messages.append(
-                    HumanMessage(
-                        content=[
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": base64_image},
-                            }
-                        ]
-                    )
-                )
+                content = [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": base64_image},
+                    }
+                ]
+
+                tag = message.get("attributes", {}).get("tag")
+                if tag:
+                    content.append({"type": "text", "text": f"({tag})"})
+
+                messages.append(HumanMessage(content=content))
 
         return configuration, messages
 
@@ -119,7 +139,6 @@ class PromptCaller:
         return create_model("DynamicModel", **fields)
 
     def call(self, promptName, context=None):
-
         configuration, messages = self.loadPrompt(promptName, context)
 
         output = None
@@ -141,7 +160,6 @@ class PromptCaller:
     def agent(
         self, promptName, context=None, tools=None, output=None, allowed_steps=10
     ):
-
         configuration, messages = self.loadPrompt(promptName, context)
 
         dynamicOutput = None
@@ -152,7 +170,7 @@ class PromptCaller:
 
             for message in messages:
                 if isinstance(message, SystemMessage):
-                    message.content += "\nOnly use the tool DynamicModel when providing an output call."
+                    message.content += "\n\nYou have to use the tool `dynamicmodel` when providing your final answer. If you don't, you have failed the task."
                     break
 
         chat = self._createChat(configuration)

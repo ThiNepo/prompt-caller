@@ -11,9 +11,13 @@ output:
 </system>
 
 <user>
-  O que é essa imagem?
+  O que é a imagem 1?
 </user>
 
-<image>
-https://thumbor.novaescola.org.br/SR2cJJih-FyEZ7W966Wz6K_q8_M=/nova-escola-producao.s3.amazonaws.com/jjkaFcRG2Ankn58fT24hmNF4eSwrZwUNhVAXHbf8gHusDtGDEFt7kt2grfwH/costura-matematica1.jpg
+<image tag="image 1">
+https://api.neps.academy/image/course-icon/22.png
+</image>
+
+<image tag="image 2">
+https://api.neps.academy/image/course-icon/27.png
 </image>
