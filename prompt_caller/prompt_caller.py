@@ -161,72 +161,40 @@ class PromptCaller:
 
         return response
 
-    def _create_pdf_middleware(self):
-        """Middleware to handle tool responses that contain pdf content."""
+    def _create_media_middleware(self):
+        """Middleware to handle tool responses that contain media content (images, PDFs)."""
 
         @wrap_tool_call
-        def handle_pdf_response(request, handler):
-            # Execute the actual tool
+        def handle_media_response(request, handler):
             result = handler(request)
 
-            # Check if result content is pdf data
             if hasattr(result, "content"):
                 content = result.content
-                # Try to parse if it's a string representation of a list
+
                 if isinstance(content, str) and content.startswith("["):
                     try:
                         content = ast.literal_eval(content)
                     except (ValueError, SyntaxError):
                         pass
 
+                # Check if content is media (image or PDF)
                 if (
                     isinstance(content, list)
                     and content
                     and isinstance(content[0], dict)
-                    and "input_file" in content[0]
-                    and "pdf" in content[0]["file_data"]
                 ):
-                    # Use Command to add both tool result and image to messages
-                    return Command(
-                        update={"messages": [result, HumanMessage(content=content)]}
+                    is_media = (
+                        "image_url" in content[0]  # Image
+                        or ("input_file" == content[0].get("type", "").strip())  # PDF
                     )
+                    if is_media:
+                        return Command(
+                            update={"messages": [result, HumanMessage(content=content)]}
+                        )
 
-            return result  # Return normal result
+            return result
 
-        return handle_pdf_response
-
-    def _create_image_middleware(self):
-        """Middleware to handle tool responses that contain image content."""
-
-        @wrap_tool_call
-        def handle_image_response(request, handler):
-            # Execute the actual tool
-            result = handler(request)
-
-            # Check if result content is image data (list with image_url dict)
-            if hasattr(result, "content"):
-                content = result.content
-                # Try to parse if it's a string representation of a list
-                if isinstance(content, str) and content.startswith("["):
-                    try:
-                        content = ast.literal_eval(content)
-                    except (ValueError, SyntaxError):
-                        pass
-
-                if (
-                    isinstance(content, list)
-                    and content
-                    and isinstance(content[0], dict)
-                    and "image_url" in content[0]
-                ):
-                    # Use Command to add both tool result and image to messages
-                    return Command(
-                        update={"messages": [result, HumanMessage(content=content)]}
-                    )
-
-            return result  # Return normal result
-
-        return handle_image_response
+        return handle_media_response
 
     def agent(
         self, promptName, context=None, tools=None, output=None, allowed_steps=10
@@ -267,10 +235,7 @@ class PromptCaller:
             tools=tools,
             system_prompt=system_prompt,
             response_format=response_format,
-            middleware=[
-                self._create_image_middleware(),
-                self._create_pdf_middleware(),
-            ],
+            middleware=[self._create_media_middleware()],
         )
 
         result = agent_graph.invoke(

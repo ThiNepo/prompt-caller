@@ -53,7 +53,7 @@ setuptools.setup(
         "pyyaml>=6.0.2",
         "python-dotenv>=1.2.1",
         "Jinja2>=3.1.4",
-        "langchain-core>=1.2.7",
+        "langchain>=1.2.7",
         "langchain-openai>=1.1.7",
         "langchain-google-genai>=4.2.0",
         "openai>=2.16.0",

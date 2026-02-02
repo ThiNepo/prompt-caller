@@ -2,6 +2,7 @@
 model: gpt-5.2
 output:
   response: "O que contém no PDF"
+use_responses_api: True
 ---
 <system>
 O PDF é um diagrama UML. Descreva-o, as entidades e suas relações.
