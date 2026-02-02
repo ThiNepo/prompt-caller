@@ -13,8 +13,10 @@ def evaluate_expression(expression: str):
     return eval(expression, safe_globals, {})
 
 
-response = ai.agent(
-    "sample-gemini-nostructure", {"expression": "3+8/9"}, tools=[evaluate_expression]
-)
+# response = ai.agent(
+#     "sample-5.2-pro", {"expression": "3+8/9"}, tools=[evaluate_expression]
+# )
+
+response = ai.call("sample-image")
 
 print(response)

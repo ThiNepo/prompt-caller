@@ -1,0 +1,14 @@
+---
+model: gpt-5.2
+output:
+  response: "O que contém no PDF"
+---
+<system>
+O PDF é um diagrama UML. Descreva-o, as entidades e suas relações.
+
+Você deve usar `load_pdf` para carregar o PDF
+</system>
+
+<user>
+Descreva o conteúdo do PDF que você vai pegar usando a tool `load_pdf`.
+</user>

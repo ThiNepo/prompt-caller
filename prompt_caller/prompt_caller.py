@@ -1,5 +1,6 @@
 import os
 import re
+import ast
 
 import requests
 import yaml
@@ -7,7 +8,7 @@ from dotenv import load_dotenv
 from jinja2 import Template
 from langgraph.types import Command
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain.agents import create_agent
 from langchain.agents.middleware import wrap_tool_call
 from langchain_openai import ChatOpenAI
@@ -160,9 +161,42 @@ class PromptCaller:
 
         return response
 
+    def _create_pdf_middleware(self):
+        """Middleware to handle tool responses that contain pdf content."""
+
+        @wrap_tool_call
+        def handle_pdf_response(request, handler):
+            # Execute the actual tool
+            result = handler(request)
+
+            # Check if result content is pdf data
+            if hasattr(result, "content"):
+                content = result.content
+                # Try to parse if it's a string representation of a list
+                if isinstance(content, str) and content.startswith("["):
+                    try:
+                        content = ast.literal_eval(content)
+                    except (ValueError, SyntaxError):
+                        pass
+
+                if (
+                    isinstance(content, list)
+                    and content
+                    and isinstance(content[0], dict)
+                    and "input_file" in content[0]
+                    and "pdf" in content[0]["file_data"]
+                ):
+                    # Use Command to add both tool result and image to messages
+                    return Command(
+                        update={"messages": [result, HumanMessage(content=content)]}
+                    )
+
+            return result  # Return normal result
+
+        return handle_pdf_response
+
     def _create_image_middleware(self):
         """Middleware to handle tool responses that contain image content."""
-        import ast
 
         @wrap_tool_call
         def handle_image_response(request, handler):
@@ -233,7 +267,10 @@ class PromptCaller:
             tools=tools,
             system_prompt=system_prompt,
             response_format=response_format,
-            middleware=[self._create_image_middleware()],
+            middleware=[
+                self._create_image_middleware(),
+                self._create_pdf_middleware(),
+            ],
         )
 
         result = agent_graph.invoke(
