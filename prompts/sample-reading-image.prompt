@@ -1,0 +1,14 @@
+---
+model: gpt-5.2
+output:
+  response: "O que contém na imagem"
+---
+<system>
+A imagem é um diagrama UML. Descreva-o, as entidades e suas relações.
+
+Você deve usar `image_to_base64` para carregar a imagem
+</system>
+
+<user>
+Descreva a imagem que você vai pegar usando a tool `image_to_base64`.
+</user>

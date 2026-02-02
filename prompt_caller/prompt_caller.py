@@ -5,8 +5,11 @@ import requests
 import yaml
 from dotenv import load_dotenv
 from jinja2 import Template
+from langgraph.types import Command
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.agents import create_agent
+from langchain.agents.middleware import wrap_tool_call
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from PIL import Image
@@ -157,86 +160,87 @@ class PromptCaller:
 
         return response
 
+    def _create_image_middleware(self):
+        """Middleware to handle tool responses that contain image content."""
+        import ast
+
+        @wrap_tool_call
+        def handle_image_response(request, handler):
+            # Execute the actual tool
+            result = handler(request)
+
+            # Check if result content is image data (list with image_url dict)
+            if hasattr(result, "content"):
+                content = result.content
+                # Try to parse if it's a string representation of a list
+                if isinstance(content, str) and content.startswith("["):
+                    try:
+                        content = ast.literal_eval(content)
+                    except (ValueError, SyntaxError):
+                        pass
+
+                if (
+                    isinstance(content, list)
+                    and content
+                    and isinstance(content[0], dict)
+                    and "image_url" in content[0]
+                ):
+                    # Use Command to add both tool result and image to messages
+                    return Command(
+                        update={"messages": [result, HumanMessage(content=content)]}
+                    )
+
+            return result  # Return normal result
+
+        return handle_image_response
+
     def agent(
         self, promptName, context=None, tools=None, output=None, allowed_steps=10
     ):
         configuration, messages = self.loadPrompt(promptName, context)
 
+        # Handle structured output from config
         dynamicOutput = None
-
         if output is None and "output" in configuration:
-            dynamicOutput = configuration.get("output")
-            configuration.pop("output")
-
-            for message in messages:
-                if isinstance(message, SystemMessage):
-                    message.content += "\n\nYou have to use the tool `dynamicmodel` when providing your final answer. If you don't, you have failed the task."
-                    break
+            dynamicOutput = configuration.pop("output")
 
         chat = self._createChat(configuration)
 
-        # Register the tools
+        # Prepare tools
         if tools is None:
             tools = []
-
-        # Transform functions in tools
         tools = [tool(t) for t in tools]
 
-        tools_dict = {t.name.lower(): t for t in tools}
-
+        # Handle response format (structured output)
+        response_format = None
         if output:
-            tools.extend([output])
-            tools_dict[output.__name__.lower()] = output
+            response_format = output
         elif dynamicOutput:
-            dynamicModel = self.createPydanticModel(dynamicOutput)
+            response_format = self.createPydanticModel(dynamicOutput)
 
-            tools.extend([dynamicModel])
-            tools_dict["dynamicmodel"] = dynamicModel
+        # Extract system message for create_agent
+        system_prompt = None
+        user_messages = []
+        for msg in messages:
+            if isinstance(msg, SystemMessage):
+                system_prompt = msg.content
+            else:
+                user_messages.append(msg)
 
-        chat = chat.bind_tools(tools)
+        # Create and invoke agent
+        agent_graph = create_agent(
+            model=chat,
+            tools=tools,
+            system_prompt=system_prompt,
+            response_format=response_format,
+            middleware=[self._create_image_middleware()],
+        )
 
-        try:
-            # First LLM invocation
-            response = chat.invoke(messages)
-            messages.append(response)
+        result = agent_graph.invoke(
+            {"messages": user_messages}, config={"recursion_limit": allowed_steps}
+        )
 
-            steps = 0
-            while response.tool_calls and steps < allowed_steps:
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"].lower()
-
-                    # If it's the final formatting tool, validate and return
-                    if dynamicOutput and tool_name == "dynamicmodel":
-                        return dynamicModel.model_validate(tool_call["args"])
-
-                    if output and tool_name == output.__name__.lower():
-                        return output.model_validate(tool_call["args"])
-
-                    selected_tool = tools_dict.get(tool_name)
-                    if not selected_tool:
-                        raise ValueError(f"Unknown tool: {tool_name}")
-
-                    # Invoke the selected tool with provided arguments
-                    tool_response = selected_tool.invoke(tool_call)
-                    messages.append(tool_response)
-
-                # If the latest message is a ToolMessage, re-invoke the LLM
-                if isinstance(messages[-1], ToolMessage):
-                    response = chat.invoke(messages)
-                    messages.append(response)
-                else:
-                    break
-
-                steps += 1
-
-            # Final LLM call if the last message is still a ToolMessage
-            if isinstance(messages[-1], ToolMessage):
-                response = chat.invoke(messages)
-                messages.append(response)
-
-            return response
-
-        except Exception as e:
-            print(e)
-            # Replace with appropriate logging in production
-            raise RuntimeError("Error during agent process") from e
+        # Return structured output or last message
+        if response_format and result.get("structured_response"):
+            return result["structured_response"]
+        return result["messages"][-1]

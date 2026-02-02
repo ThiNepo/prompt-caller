@@ -51,12 +51,13 @@ setuptools.setup(
     ],
     install_requires=[
         "pyyaml>=6.0.2",
-        "python-dotenv>=1.0.1",
+        "python-dotenv>=1.2.1",
         "Jinja2>=3.1.4",
-        "langchain-openai>=0.3.5",
-        "langchain-google-genai==2.1.5",
-        "openai>=1.63.0",
-        "pillow>=11.0.0",
+        "langchain-core>=1.2.7",
+        "langchain-openai>=1.1.7",
+        "langchain-google-genai>=4.2.0",
+        "openai>=2.16.0",
+        "pillow>=12.1.0",
     ],
     cmdclass={"sdist": SdistCommand, "bdist_wheel": BdistWheelCommand},
 )
