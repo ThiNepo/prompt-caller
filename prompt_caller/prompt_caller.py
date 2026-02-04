@@ -183,13 +183,22 @@ class PromptCaller:
                     and content
                     and isinstance(content[0], dict)
                 ):
-                    is_media = (
-                        "image_url" in content[0]  # Image
-                        or ("input_file" == content[0].get("type", "").strip())  # PDF
-                    )
+                    is_media = "image_url" in content[0] or (  # Image
+                        "input_file" == content[0].get("type", "").strip()
+                    )  # PDF
                     if is_media:
+                        filename = content[0].get("filename", "document.pdf")
+                        tool_call_id = request.tool_call["id"]
+
+                        tool_msg = ToolMessage(
+                            tool_call_id=tool_call_id,
+                            content=f"The file '{filename}' was loaded and is attached below for visual review.",
+                        )
+
                         return Command(
-                            update={"messages": [result, HumanMessage(content=content)]}
+                            update={
+                                "messages": [tool_msg, HumanMessage(content=content)]
+                            }
                         )
 
             return result
