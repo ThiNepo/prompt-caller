@@ -248,7 +248,7 @@ class PromptCaller:
         )
 
         result = agent_graph.invoke(
-            {"messages": user_messages}, config={"recursion_limit": allowed_steps}
+            {"messages": user_messages}, {"recursion_limit": allowed_steps}
         )
 
         # Return structured output or last message
