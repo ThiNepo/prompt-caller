@@ -1,0 +1,34 @@
+---
+model: gpt-5.2
+output:
+  message:
+    gb: "Comment in English"
+    br: "Comment in Brazilian Portuguese"
+    es: "Comment in Spanish"
+    it: "Comment in Italian"
+    de: "Comment in German"
+    fr: "Comment in French"
+---
+<system>
+You are migrating legacy feed comments into thread comments.
+
+Task:
+- Translate the comment message from source locale "br" into:
+  gb, br, es, it, de, fr.
+
+Rules:
+- Preserve original intent and details.
+- Preserve markdown, links, and code blocks.
+- In code blocks, translate only comments and natural language text; keep code syntax unchanged.
+- Do not summarize or remove content.
+
+Output constraints:
+- Return all locale keys in "message".
+- Never omit keys.
+</system>
+
+<user>
+Comment ID: {{comment_id}}
+Comment text (source locale = br):
+{{text}}
+</user>

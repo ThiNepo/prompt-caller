@@ -133,14 +133,46 @@ class PromptCaller:
 
         return configuration, messages
 
+    def _toModelNamePart(self, key):
+        parts = re.split(r"[^A-Za-z0-9]+", key)
+        normalized = [p.capitalize() for p in parts if p]
+        return "".join(normalized) or "Field"
+
+    def _buildPydanticModel(self, model_name, schema, path):
+        if not isinstance(schema, dict):
+            raise ValueError(f"Output schema at '{path}' must be a dictionary.")
+
+        fields = {}
+
+        for key, value in schema.items():
+            if "." in key:
+                raise ValueError(
+                    f"Invalid output field '{path}.{key}': dotted keys are not supported. "
+                    "Use nested dictionaries instead (e.g. message: { gb: \"...\" })."
+                )
+
+            field_path = f"{path}.{key}"
+
+            if isinstance(value, dict):
+                nested_model_name = (
+                    f"{model_name}{self._toModelNamePart(key)}"
+                )
+                nested_model = self._buildPydanticModel(
+                    nested_model_name, value, field_path
+                )
+                fields[key] = (nested_model, ...)
+            elif isinstance(value, str):
+                fields[key] = (str, Field(description=value))
+            else:
+                raise ValueError(
+                    f"Invalid output field '{field_path}': expected string description "
+                    f"or nested dictionary, got {type(value).__name__}."
+                )
+
+        return create_model(model_name, **fields)
+
     def createPydanticModel(self, dynamic_dict):
-        # Create a dynamic Pydantic model from the dictionary
-        fields = {
-            key: (str, Field(description=f"Description for {key}"))
-            for key in dynamic_dict.keys()
-        }
-        # Dynamically create the Pydantic model with the fields
-        return create_model("DynamicModel", **fields)
+        return self._buildPydanticModel("DynamicModel", dynamic_dict, "output")
 
     def call(self, promptName, context=None):
         configuration, messages = self.loadPrompt(promptName, context)
