@@ -38,7 +38,7 @@ setuptools.setup(
     version="0.5.0",
     author="Thiago Nepomuceno",
     author_email="thiago@neps.academy",
-    description="This package is responsible for calling prompts in a specific format. It uses LangChain and OpenAI API",
+    description="Centralize .prompt files, produce structured outputs, and enable agents to author prompts via SKILLS.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     include_package_data=True,

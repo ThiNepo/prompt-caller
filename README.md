@@ -6,7 +6,7 @@
 
 # PromptCaller
 
-**PromptCaller** is a Python package for calling prompts in a specific format, using LangChain and the OpenAI API. It enables users to load prompts from a template, render them with contextual data, and make structured requests to the OpenAI API.
+**PromptCaller** centralizes `.prompt` files in one folder, turns prompt responses into structured outputs, and includes SKILLS so agents can create and maintain prompt files consistently.
 
 ## Features
 
