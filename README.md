@@ -1,3 +1,9 @@
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/prompt-caller) ![PyPI](https://img.shields.io/pypi/v/prompt-caller)
+
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/prompt-caller)](https://pypi.org/project/prompt-caller/) [![Discord](https://img.shields.io/discord/479923444017004556?label=discord)](https://discord.gg/jWWDRyD5Nu)  [![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UCMb90JgsFJpZyZzdmWCaCTg?style=social)](https://www.youtube.com/channel/UCMb90JgsFJpZyZzdmWCaCTg)
+
+![Logo](images//logo.png)
+
 # PromptCaller
 
 **PromptCaller** is a Python package for calling prompts in a specific format, using LangChain and the OpenAI API. It enables users to load prompts from a template, render them with contextual data, and make structured requests to the OpenAI API.
@@ -21,6 +27,22 @@ You will also need an `.env` file that contains your OpenAI API key:
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
+## CLI Skill Installation
+
+PromptCaller ships with a CLI command to install a PromptCaller skill pack into `.agents/skills`.
+
+```bash
+prompt-caller install
+```
+
+Alternative module invocation:
+
+```bash
+python -m prompt_caller install
+```
+
+By default, this installs to `.agents/skills/prompt-caller` and overwrites existing files.
+
 ## Usage
 
 1. **Define a prompt file:**
@@ -29,9 +51,8 @@ Create a `.prompt` file in the `prompts` directory, e.g., `prompts/sample.prompt
 
 ```yaml
 ---
-model: gpt-4o-mini
-temperature: 0.7
-max_tokens: 512
+model: gpt-5.2
+reasoning_effort: medium
 output:
   result: "Final result of the expression"
   explanation: "Explanation of the calculation"
@@ -47,7 +68,7 @@ How much is {{expression}}?
 
 This `.prompt` file contains:
 
-- A YAML header for configuring the model and parameters.
+- A YAML-like header for configuring the model and parameters.
 - A template body using Jinja2 to inject the context (like `{{ expression }}`).
 - Messages structured in a JSX-like format (`<system>`, `<user>`).
 
@@ -68,9 +89,50 @@ In this example:
 - The `expression` value `3+8/9` is injected into the user message.
 - The model will respond with both the result of the expression and an explanation, as specified in the `output` section of the prompt.
 
+### Advanced Prompt Example (`sample-5.2-complete.prompt`)
+
+Use this when you want strongly typed, multi-field structured output with reusable types:
+
+```yaml
+---
+model: gpt-5.2
+reasoning_effort: high
+output:
+  result: "number | Final result of the expression"
+  explanation: "string | Explanation of the calculation"
+  steps: "list[Step] | Ordered calculation steps"
+  confidence: "enum[low|medium|high] | Confidence level for the computed answer."
+
+types:
+  Step:
+    expression: "string | Expression evaluated in this step"
+    value: "number | Numeric result of this step"
+---
+<system>
+  You are a helpful assistant and you have access to tools.
+  Use tools when needed.
+  Return all requested structured fields.
+</system>
+
+<user>
+  How much is {{expression}}?
+</user>
+```
+
+Example call:
+
+```python
+from prompt_caller import PromptCaller
+
+ai = PromptCaller()
+
+response = ai.call("sample-5.2-complete", {"expression": "(3 + 8) / 9"})
+print(response)
+```
+
 3. **Using the agent feature:**  
 
-The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Hereâ€™s an example where we evaluate a mathematical expression using Pythonâ€™s `eval` in a safe execution environment:
+The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Here’s an example where we evaluate a mathematical expression using Python’s `eval` in a safe execution environment:
 
 ```python
 from prompt_caller import PromptCaller
@@ -139,3 +201,57 @@ This project is licensed under the **Apache License 2.0**. You may use, modify, 
 ```
 pytest --cov=prompt_caller ; coverage report --sort=miss
 ```
+
+## README TODO (Remaining Improvements)
+
+- Document `call()` vs `agent()` precedence explicitly: prompt `output` is used by default, but `agent(..., output=...)` overrides it.
+- Add one `agent()` example with real tools and one with explicit Pydantic `output` override.
+- Add an image example using `<image>` blocks (URL and data URL forms).
+- Add a concise error troubleshooting section for malformed output schemas (unknown type, invalid enum descriptions, bad optional syntax).
+- Fix text encoding artifacts in README (for example `Hereâ€™s` should be `Here's`).
+
+## Output Schema DSL
+
+The `output` field supports both legacy and typed schema definitions.
+
+Legacy format (defaults to `string`):
+
+```yaml
+output:
+  answer: "Final answer to return"
+```
+
+Compact DSL format (recommended):
+
+```yaml
+output:
+  title: "string | Final title"
+  confidence: "enum[low|medium|high] | Confidence level"
+  steps: "list[Step] | Ordered calculation steps"
+  note?: "string | Optional extra note"
+```
+
+Supported type expressions:
+
+- `string`
+- `number`
+- `integer`
+- `boolean`
+- `list[T]`
+- `enum[a|b|c]`
+- named type references declared under top-level `types`
+
+Named reusable types:
+
+```yaml
+types:
+  Step:
+    expression: "string | Expression evaluated in this step"
+    value: "number | Numeric result of this step"
+```
+
+Rules:
+
+- Optional fields are declared with `?` suffix (for example `note?`).
+- `call()` uses prompt `output` when present.
+- `agent()` uses prompt `output` only when `output=` is not explicitly passed.

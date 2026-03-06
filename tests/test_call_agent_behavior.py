@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from langchain_core.messages import AIMessage
+from typing import get_origin, get_args, Literal
 
 import prompt_caller.prompt_caller as pc_module
 
@@ -154,3 +155,63 @@ output:
 
     assert isinstance(response, ExplicitOutput)
     assert captured["response_format"] is ExplicitOutput
+
+
+def test_call_parses_spaced_output_schema_from_prompt_frontmatter(
+    prompt_caller, write_prompt, monkeypatch, chat_stub_factory
+):
+    write_prompt(
+        "spaced_schema",
+        """
+model: gpt-5.2
+reasoning_effort: high
+output:
+  result: "number            | Final result of the expression"
+  explanation: "string |             Explanation of the calculation"
+  steps: "list[Step] | Ordered calculation steps"
+  confidence:
+    type: "enum[low|medium|high]"
+    description: "Confidence level for the computed answer."
+    enum_descriptions:
+      low: "Used when there is uncertainty or missing evidence."
+      medium: "Used when likely correct but not fully certain."
+      high: "Used when the derivation is clear and verified."
+types:
+  Step:
+    expression: "string | Expression evaluated in this step"
+    value: "number | Numeric result of this step"
+""",
+        """
+<system>
+You are a helpful assistant and you have access to tools.
+Use tools when needed.
+Return all requested structured fields.
+</system>
+<user>
+How much is {{expression}}?
+</user>
+""",
+    )
+
+    monkeypatch.setattr(pc_module, "ChatOpenAI", lambda **_: chat_stub_factory(response={"result": 2.0, "explanation": "ok", "steps": [], "confidence": "high"}))
+
+    response = prompt_caller.call("spaced_schema", {"expression": "1+1"})
+
+    assert response["result"] == 2.0
+
+    model = chat_stub_factory.created[0].structured_schema
+    assert model.model_fields["result"].annotation is float
+    assert (
+        model.model_fields["result"].description == "Final result of the expression"
+    )
+    assert (
+        model.model_fields["explanation"].description
+        == "Explanation of the calculation"
+    )
+
+    steps_annotation = model.model_fields["steps"].annotation
+    assert get_origin(steps_annotation) is list
+
+    confidence_annotation = model.model_fields["confidence"].annotation
+    assert get_origin(confidence_annotation) is Literal
+    assert get_args(confidence_annotation) == ("low", "medium", "high")

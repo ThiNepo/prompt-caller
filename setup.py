@@ -35,7 +35,7 @@ class BdistWheelCommand(bdist_wheel):
 
 setuptools.setup(
     name="prompt_caller",
-    version="0.2.4",
+    version="0.5.0",
     author="Thiago Nepomuceno",
     author_email="thiago@neps.academy",
     description="This package is responsible for calling prompts in a specific format. It uses LangChain and OpenAI API",
@@ -44,12 +44,16 @@ setuptools.setup(
     include_package_data=True,
     url="https://github.com/ThiNepo/prompt-caller",
     packages=setuptools.find_packages(),
+    python_requires=">=3.13",
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     install_requires=[
+        "click>=8.1.7",
         "pyyaml>=6.0.2",
         "python-dotenv>=1.2.1",
         "Jinja2>=3.1.4",
@@ -59,5 +63,17 @@ setuptools.setup(
         "openai>=2.16.0",
         "pillow>=12.1.0",
     ],
+    package_data={
+        "prompt_caller": [
+            "skills/prompt-caller/SKILL.md",
+            "skills/prompt-caller/agents/openai.yaml",
+            "skills/prompt-caller/references/*.md",
+        ]
+    },
+    entry_points={
+        "console_scripts": [
+            "prompt-caller=prompt_caller.__main__:cli",
+        ]
+    },
     cmdclass={"sdist": SdistCommand, "bdist_wheel": BdistWheelCommand},
 )

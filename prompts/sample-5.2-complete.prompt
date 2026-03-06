@@ -5,13 +5,7 @@ output:
   result: "number | Final result of the expression"
   explanation: "string | Explanation of the calculation"
   steps: "list[Step] | Ordered calculation steps"
-  confidence:
-    type: "enum[low|medium|high]"
-    description: "Confidence level for the computed answer."
-    enum_descriptions:
-      low: "Used when there is uncertainty or missing evidence."
-      medium: "Used when likely correct but not fully certain."
-      high: "Used when the derivation is clear and verified."
+  confidence: "enum[low|medium|high] | Confidence level for the computed answer."
 
 types:
   Step:

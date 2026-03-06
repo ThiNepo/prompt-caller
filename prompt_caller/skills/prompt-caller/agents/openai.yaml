@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: PromptCaller
+  short_description: PromptCaller prompt format and output schema guidance.
+  default_prompt: Use PromptCaller prompt conventions and output DSL.
