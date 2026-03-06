@@ -132,7 +132,7 @@ print(response)
 
 3. **Using the agent feature:**  
 
-The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Here�s an example where we evaluate a mathematical expression using Python�s `eval` in a safe execution environment:
+The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Here's an example where we evaluate a mathematical expression using Python�s `eval` in a safe execution environment:
 
 ```python
 from prompt_caller import PromptCaller
