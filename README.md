@@ -132,3 +132,10 @@ To build the distribution and upload it to a package repository like PyPI, follo
 ## License
 
 This project is licensed under the **Apache License 2.0**. You may use, modify, and distribute this software as long as you provide proper attribution and include the full text of the license in any distributed copies or derivative works.
+
+
+## Tests
+
+```
+pytest --cov=prompt_caller ; coverage report --sort=miss
+```
