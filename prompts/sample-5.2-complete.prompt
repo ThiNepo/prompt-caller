@@ -1,0 +1,29 @@
+---
+model: gpt-5.2
+reasoning_effort: high
+output:
+  result: "number | Final result of the expression"
+  explanation: "string | Explanation of the calculation"
+  steps: "list[Step] | Ordered calculation steps"
+  confidence:
+    type: "enum[low|medium|high]"
+    description: "Confidence level for the computed answer."
+    enum_descriptions:
+      low: "Used when there is uncertainty or missing evidence."
+      medium: "Used when likely correct but not fully certain."
+      high: "Used when the derivation is clear and verified."
+
+types:
+  Step:
+    expression: "string | Expression evaluated in this step"
+    value: "number | Numeric result of this step"
+---
+<system>
+  You are a helpful assistant and you have access to tools.
+  Use tools when needed.
+  Return all requested structured fields.
+</system>
+
+<user>
+  How much is {{expression}}?
+</user>

@@ -20,26 +20,11 @@ def evaluate_expression(expression: str):
     Evaluate a math expression using eval.
     """
     safe_globals = {"__builtins__": None}
-    return float(eval(expression, safe_globals, {}))
+    return eval(expression, safe_globals, {})
 
 
-def solve_expression_steps(expression: str):
-    """
-    Return a deterministic step list for structured output tests.
-    """
-    safe_globals = {"__builtins__": None}
-    value = float(eval(expression, safe_globals, {}))
-    return [{"expression": expression, "value": value}]
-
-
-response = ai.agent(
-    "sample-5.2-complete",
-    {"expression": "((12.5 - 3.5) * 4 + 18 / 3) / 2"},
-    tools=[evaluate_expression, solve_expression_steps],
-)
+response = ai.agent("sample-5.2", {"expression": "3+8/9"}, tools=[evaluate_expression])
 
 # response = ai.call("sample-image")
 
 print(response)
-if hasattr(response, "model_dump"):
-    print(response.model_dump())
