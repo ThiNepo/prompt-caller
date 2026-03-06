@@ -1,4 +1,4 @@
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/prompt-caller) ![PyPI](https://img.shields.io/pypi/v/prompt-caller)
+ï»¿![PyPI - Python Version](https://img.shields.io/pypi/pyversions/prompt-caller) ![PyPI](https://img.shields.io/pypi/v/prompt-caller)
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/prompt-caller)](https://pypi.org/project/prompt-caller/) [![Discord](https://img.shields.io/discord/479923444017004556?label=discord)](https://discord.gg/jWWDRyD5Nu)  [![YouTube Channel Subscribers](https://img.shields.io/youtube/channel/subscribers/UCMb90JgsFJpZyZzdmWCaCTg?style=social)](https://www.youtube.com/channel/UCMb90JgsFJpZyZzdmWCaCTg)
 
@@ -132,7 +132,7 @@ print(response)
 
 3. **Using the agent feature:**  
 
-The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Here’s an example where we evaluate a mathematical expression using Python’s `eval` in a safe execution environment:
+The `agent` method allows you to enhance the prompt's functionality by integrating external tools. Hereï¿½s an example where we evaluate a mathematical expression using Pythonï¿½s `eval` in a safe execution environment:
 
 ```python
 from prompt_caller import PromptCaller
@@ -191,24 +191,12 @@ To build the distribution and upload it to a package repository like PyPI, follo
 
    Ensure you have configured your PyPI credentials before running this command. You can find more information on configuring credentials in the [Twine documentation](https://twine.readthedocs.io/).
 
-## License
-
-This project is licensed under the **Apache License 2.0**. You may use, modify, and distribute this software as long as you provide proper attribution and include the full text of the license in any distributed copies or derivative works.
-
 
 ## Tests
 
 ```
 pytest --cov=prompt_caller ; coverage report --sort=miss
 ```
-
-## README TODO (Remaining Improvements)
-
-- Document `call()` vs `agent()` precedence explicitly: prompt `output` is used by default, but `agent(..., output=...)` overrides it.
-- Add one `agent()` example with real tools and one with explicit Pydantic `output` override.
-- Add an image example using `<image>` blocks (URL and data URL forms).
-- Add a concise error troubleshooting section for malformed output schemas (unknown type, invalid enum descriptions, bad optional syntax).
-- Fix text encoding artifacts in README (for example `Hereâ€™s` should be `Here's`).
 
 ## Output Schema DSL
 
@@ -255,3 +243,7 @@ Rules:
 - Optional fields are declared with `?` suffix (for example `note?`).
 - `call()` uses prompt `output` when present.
 - `agent()` uses prompt `output` only when `output=` is not explicitly passed.
+
+## License
+
+This project is licensed under the **Apache License 2.0**. You may use, modify, and distribute this software as long as you provide proper attribution and include the full text of the license in any distributed copies or derivative works.
