@@ -119,6 +119,71 @@ output:
     assert captured["config"] == {"recursion_limit": 10}
 
 
+def test_agent_strips_prompt_metadata_and_uses_types_for_structured_output(
+    prompt_caller, write_prompt, monkeypatch, chat_stub_factory
+):
+    write_prompt(
+        "agent_typed",
+        """
+model: gpt-5.2
+reasoning_effort: high
+output:
+  result: "number | Final result of the expression"
+  steps: "list[Step] | Ordered calculation steps"
+types:
+  Step:
+    expression: "string | Expression evaluated in this step"
+    value: "number | Numeric result of this step"
+""",
+        _basic_body(),
+    )
+
+    chat_kwargs = {}
+    captured = {}
+
+    def fake_chat_openai(**kwargs):
+        chat_kwargs.update(kwargs)
+        return chat_stub_factory()
+
+    class AgentGraphStub:
+        def invoke(self, payload, config):
+            captured["payload"] = payload
+            captured["config"] = config
+            return {
+                "structured_response": {
+                    "result": 2.0,
+                    "steps": [{"expression": "1+1", "value": 2.0}],
+                },
+                "messages": [AIMessage(content="unused")],
+            }
+
+    def fake_create_agent(**kwargs):
+        captured["create_agent_kwargs"] = kwargs
+        return AgentGraphStub()
+
+    monkeypatch.setattr(pc_module, "ChatOpenAI", fake_chat_openai)
+    monkeypatch.setattr(pc_module, "create_agent", fake_create_agent)
+
+    response = prompt_caller.agent("agent_typed", {"expression": "1+1"})
+
+    assert response["result"] == 2.0
+    assert chat_kwargs == {"model": "gpt-5.2", "reasoning_effort": "high"}
+    assert "output" not in chat_kwargs
+    assert "types" not in chat_kwargs
+
+    response_format = captured["create_agent_kwargs"]["response_format"]
+    assert response_format is not None
+    assert response_format.model_fields["result"].annotation is float
+
+    steps_annotation = response_format.model_fields["steps"].annotation
+    assert get_origin(steps_annotation) is list
+
+    step_model = get_args(steps_annotation)[0]
+    assert step_model.model_fields["expression"].annotation is str
+    assert step_model.model_fields["value"].annotation is float
+    assert captured["config"] == {"recursion_limit": 10}
+
+
 def test_agent_explicit_output_overrides_prompt_output(
     prompt_caller, write_prompt, monkeypatch, chat_stub_factory
 ):

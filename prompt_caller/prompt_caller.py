@@ -24,6 +24,8 @@ load_dotenv()
 
 
 class PromptCaller:
+    RESERVED_PROMPT_CONFIGURATION_KEYS = {"output", "types"}
+
     def __init__(self, promptPath="prompts"):
         self.promptPath = promptPath
 
@@ -81,6 +83,12 @@ class PromptCaller:
             return ChatGoogleGenerativeAI(**configuration)
         else:
             return ChatOpenAI(**configuration)
+
+    def _splitPromptConfiguration(self, configuration):
+        model_configuration = dict(configuration)
+        prompt_output = model_configuration.pop("output", None)
+        type_defs = model_configuration.pop("types", None)
+        return model_configuration, prompt_output, type_defs
 
     def getImageBase64(self, url: str) -> str:
         response = requests.get(url)
@@ -399,11 +407,11 @@ class PromptCaller:
 
     def call(self, promptName, context=None):
         configuration, messages = self.loadPrompt(promptName, context)
+        model_configuration, output, type_defs = self._splitPromptConfiguration(
+            configuration
+        )
 
-        output = configuration.pop("output", None)
-        type_defs = configuration.pop("types", None)
-
-        chat = self._createChat(configuration)
+        chat = self._createChat(model_configuration)
 
         if output:
             dynamicModel = self.createPydanticModel(output, type_defs=type_defs)
@@ -461,16 +469,16 @@ class PromptCaller:
         self, promptName, context=None, tools=None, output=None, allowed_steps=10
     ):
         configuration, messages = self.loadPrompt(promptName, context)
-
-        prompt_output = configuration.pop("output", None)
-        type_defs = configuration.pop("types", None)
+        model_configuration, prompt_output, type_defs = (
+            self._splitPromptConfiguration(configuration)
+        )
 
         # Handle structured output from config
         dynamicOutput = None
         if output is None and prompt_output is not None:
             dynamicOutput = prompt_output
 
-        chat = self._createChat(configuration)
+        chat = self._createChat(model_configuration)
 
         # Prepare tools
         if tools is None:
