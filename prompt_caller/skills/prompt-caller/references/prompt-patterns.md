@@ -13,7 +13,7 @@ Use top-level `types` only when a field actually references a named type like `l
 
 ```yaml
 ---
-model: gpt-4o-mini
+model: gpt-5.4-mini
 output:
   answer: "Final answer"
 ---
@@ -26,7 +26,7 @@ Answer: {{question}}
 
 ```yaml
 ---
-model: gpt-5.2
+model: gpt-5.4
 reasoning_effort: high
 output:
   result: "number | Final computed value"
@@ -41,7 +41,7 @@ Compute {{expression}} and provide confidence.
 
 ```yaml
 ---
-model: gpt-5.2
+model: gpt-5.4
 reasoning_effort: high
 output:
   result: "number | Final result"
@@ -60,7 +60,7 @@ Solve {{expression}} and show the intermediate steps.
 
 ```yaml
 ---
-model: gpt-5.2
+model: gpt-5.4
 output:
   result: "number | Final result"
   explanation: "string | Tool-backed explanation"
