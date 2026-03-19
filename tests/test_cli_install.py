@@ -2,6 +2,7 @@ from pathlib import Path
 import subprocess
 import sys
 import shutil
+import os
 
 from click.testing import CliRunner
 import pytest
@@ -82,6 +83,52 @@ def test_module_invocation_installs_skill(cli_runtime_root):
             str(target_root),
         ],
         cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (target_root / SKILL_NAME / "SKILL.md").exists()
+
+
+def test_installed_package_module_invocation_installs_skill(cli_runtime_root):
+    install_root = (cli_runtime_root / "installed-package").resolve()
+    install_root.mkdir(parents=True, exist_ok=True)
+    site_packages = install_root / "site"
+    target_root = install_root / "runtime" / "module-skills"
+
+    install_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--no-deps",
+            "--target",
+            str(site_packages),
+            ".",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, install_result.stderr
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(site_packages)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "prompt_caller",
+            "install",
+            "--target",
+            str(target_root),
+        ],
+        cwd=install_root / "runtime",
+        env=env,
         capture_output=True,
         text=True,
         check=False,

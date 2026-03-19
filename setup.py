@@ -35,7 +35,7 @@ class BdistWheelCommand(bdist_wheel):
 
 setuptools.setup(
     name="prompt_caller",
-    version="0.5.0",
+    version="0.5.2",
     author="Thiago Nepomuceno",
     author_email="thiago@neps.academy",
     description="Centralize .prompt files, produce structured outputs, and enable agents to author prompts via SKILLS.",
@@ -44,7 +44,7 @@ setuptools.setup(
     include_package_data=True,
     url="https://github.com/ThiNepo/prompt-caller",
     packages=setuptools.find_packages(),
-    python_requires=">=3.13",
+    python_requires=">=3.11",
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
