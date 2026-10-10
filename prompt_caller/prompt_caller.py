@@ -14,6 +14,7 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import wrap_tool_call
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from PIL import Image
 from pydantic import BaseModel, Field, create_model
 
@@ -24,7 +25,7 @@ load_dotenv()
 
 
 class PromptCaller:
-    RESERVED_PROMPT_CONFIGURATION_KEYS = {"output", "types"}
+    RESERVED_PROMPT_CONFIGURATION_KEYS = {"provider", "output", "types"}
 
     def __init__(self, promptPath="prompts"):
         self.promptPath = promptPath
@@ -77,12 +78,29 @@ class PromptCaller:
         return elements
 
     def _createChat(self, configuration):
-        if configuration.get("model") is not None and configuration.get(
-            "model"
-        ).startswith("gemini"):
-            return ChatGoogleGenerativeAI(**configuration)
+        providers = {
+            "openai": ChatOpenAI,
+            "google_genai": ChatGoogleGenerativeAI,
+            "ollama": ChatOllama,
+        }
+        if "provider" in configuration:
+            provider = configuration["provider"]
         else:
-            return ChatOpenAI(**configuration)
+            model = configuration.get("model") or ""
+            provider = "google_genai" if model.startswith("gemini") else "openai"
+
+        if not isinstance(provider, str) or provider not in providers:
+            raise ValueError(
+                f"Invalid provider {provider!r}. Expected one of: "
+                f"{', '.join(providers)}."
+            )
+
+        model_configuration = {
+            key: value
+            for key, value in configuration.items()
+            if key not in self.RESERVED_PROMPT_CONFIGURATION_KEYS
+        }
+        return providers[provider](**model_configuration)
 
     def _splitPromptConfiguration(self, configuration):
         model_configuration = dict(configuration)
@@ -494,6 +512,13 @@ class PromptCaller:
                 dynamicOutput, type_defs=type_defs
             )
 
+        # Ollama's schema constraint interferes with tool calls in the same turn.
+        separate_output = (
+            configuration.get("provider") == "ollama"
+            and bool(tools)
+            and response_format is not None
+        )
+
         # Extract system message for create_agent
         system_prompt = None
         user_messages = []
@@ -508,13 +533,26 @@ class PromptCaller:
             model=chat,
             tools=tools,
             system_prompt=system_prompt,
-            response_format=response_format,
+            response_format=None if separate_output else response_format,
             middleware=[self._create_media_middleware()],
         )
 
         result = agent_graph.invoke(
             {"messages": user_messages}, {"recursion_limit": allowed_steps}
         )
+
+        if separate_output:
+            final_messages = []
+            if system_prompt is not None:
+                final_messages.append(SystemMessage(content=system_prompt))
+            final_messages.extend(result["messages"])
+            final_messages.append(
+                HumanMessage(
+                    content="Format the final answer using the conversation and tool "
+                    "results above. Do not add information or call tools."
+                )
+            )
+            return chat.with_structured_output(response_format).invoke(final_messages)
 
         # Return structured output or last message
         if response_format and result.get("structured_response"):

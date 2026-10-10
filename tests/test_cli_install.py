@@ -97,6 +97,7 @@ def test_installed_package_module_invocation_installs_skill(cli_runtime_root):
     install_root.mkdir(parents=True, exist_ok=True)
     site_packages = install_root / "site"
     target_root = install_root / "runtime" / "module-skills"
+    target_root.parent.mkdir(parents=True, exist_ok=True)
 
     install_result = subprocess.run(
         [

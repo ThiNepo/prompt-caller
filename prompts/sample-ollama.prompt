@@ -1,0 +1,18 @@
+---
+provider: ollama
+model: qwen3.5:4b-q4_K_M
+base_url: http://localhost:11434
+temperature: 0
+reasoning: false
+output:
+  answer: "string | Answer to the question"
+  confidence: "enum[low|medium|high] | Confidence level"
+---
+<system>
+Answer the question clearly and concisely.
+Return all requested structured fields.
+</system>
+
+<user>
+{{question}}
+</user>

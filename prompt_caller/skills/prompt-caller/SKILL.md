@@ -6,7 +6,7 @@ description: Use this skill when creating or editing PromptCaller prompts and in
 # PromptCaller Skill
 
 Use PromptCaller with three building blocks:
-- Frontmatter YAML (`model`, model args, `output`, optional `types`)
+- Frontmatter YAML (`model`, optional `provider`, model args, `output`, optional `types`)
 - Prompt body (`<system>`, `<user>`, `<image>` blocks)
 - Jinja interpolation (`{{variable}}`) in body content
 
@@ -30,6 +30,22 @@ You are a helpful assistant.
 Solve {{ expression }}.
 </user>
 ```
+
+## Model Providers
+
+- Set `provider` to `openai`, `google_genai`, or `ollama` to choose the chat client.
+- If omitted, model names starting with `gemini` use Google; other names use OpenAI.
+- `provider`, `output`, and `types` are internal metadata, not client parameters.
+- Use options supported by the selected client. Ollama accepts `base_url`,
+  `temperature`, `num_ctx`, and `reasoning`; do not copy OpenAI-only options.
+- For the course, use `provider: ollama` and `model: qwen3.5:4b-q4_K_M`.
+  Start Ollama and run `ollama pull qwen3.5:4b-q4_K_M` first.
+- Both `call()` and `agent()` select the provider from the prompt. Tool use
+  requires a model that supports tool calling.
+- Ollama `agent()` with tools and a schema runs tools first, then formats the full
+  conversation in one extra model call without bound tools. Prompt `output` and
+  explicit `output=` are supported; formatting errors propagate, not plain text.
+  OpenAI/Gemini and other Ollama paths retain their existing behavior.
 
 ## Output Schema Rules
 

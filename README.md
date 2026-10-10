@@ -11,7 +11,7 @@
 ## Features
 
 - **Load prompts** from a `.prompt` file containing a YAML configuration and a message template.
-- **Invoke prompts** using LangChain and OpenAI API, with support for structured output.
+- **Invoke prompts** using LangChain with OpenAI, Google Gemini, or Ollama, with support for structured output and tools.
 
 ## Installation
 
@@ -21,11 +21,83 @@ To install the package, simply run:
 pip install prompt-caller
 ```
 
-You will also need an `.env` file that contains your OpenAI API key:
+For OpenAI prompts, you will also need an `.env` file that contains your OpenAI API key:
 
 ```
 OPENAI_API_KEY=your_openai_api_key_here
 ```
+
+### Model Providers
+
+Choose a provider in the `.prompt` frontmatter:
+
+| `provider` | Chat client |
+| --- | --- |
+| `openai` | `ChatOpenAI` |
+| `google_genai` | `ChatGoogleGenerativeAI` |
+| `ollama` | `ChatOllama` |
+
+When `provider` is omitted, model names beginning with `gemini` select Google;
+all other names select OpenAI. An explicit provider takes precedence over the
+model name. `provider`, `output`, and `types` are internal PromptCaller metadata;
+the remaining frontmatter configures the selected chat client. Use parameters
+supported by that client (for example, `reasoning` for Ollama).
+
+### Local Ollama
+
+Install and start [Ollama](https://ollama.com), then download the course model:
+
+```bash
+ollama pull qwen3.5:4b-q4_K_M
+```
+
+Use `prompts/sample-ollama.prompt`:
+
+```yaml
+---
+provider: ollama
+model: qwen3.5:4b-q4_K_M
+base_url: http://localhost:11434
+temperature: 0
+reasoning: false
+output:
+  answer: "string | Answer to the question"
+  confidence: "enum[low|medium|high] | Confidence level"
+---
+<system>
+Answer the question clearly and concisely.
+Return all requested structured fields.
+</system>
+
+<user>
+{{question}}
+</user>
+```
+
+```python
+from prompt_caller import PromptCaller
+
+ai = PromptCaller()
+response = ai.call("sample-ollama", {"question": "What is 7 + 5?"})
+print(response.answer)
+```
+
+Local Ollama does not require an OpenAI key. `base_url` is optional; when omitted,
+the Ollama client uses its default server address. Tool-enabled agents require a
+model that supports tool calling. PromptCaller uses the standard LangChain
+structured-output and tool mechanisms.
+
+For Ollama agents with both tools and an output schema, PromptCaller runs the
+tool-enabled agent without a response schema, then makes one additional call to
+the same model with `with_structured_output()`. The formatting call receives the
+system prompt and full conversation, including tool results, without bound tools.
+Parsing and validation errors propagate rather than falling back to plain text.
+This avoids constraining tool calls with Ollama's JSON schema format. OpenAI and
+Gemini keep their existing agent response strategy; other Ollama paths are unchanged.
+`allowed_steps` limits the agent graph, not the additional formatting call.
+
+Real tests with `qwen3.5:4b-q4_K_M` passed for structured `call()` output and
+`agent()` with actual tool execution, both with and without an output schema.
 
 ## CLI Skill Installation
 
@@ -165,7 +237,7 @@ In this example:
 1. **\_loadPrompt:** Loads the prompt file, splits the YAML header from the body, and parses them.
 2. **\_renderTemplate:** Uses the Jinja2 template engine to render the body with the provided context.
 3. **\_parseJSXBody:** Parses the message body written in JSX-like tags to extract system and user messages.
-4. **call:** Invokes the OpenAI API with the parsed configuration and messages, and handles structured output via dynamic Pydantic models.
+4. **call:** Invokes the selected chat provider with the parsed configuration and messages, and handles structured output via dynamic Pydantic models.
 
 ## Build and Upload
 
@@ -197,6 +269,21 @@ To build the distribution and upload it to a package repository like PyPI, follo
 ```
 pytest --cov=prompt_caller ; coverage report --sort=miss
 ```
+
+The regular suite does not contact Ollama. To run the real course-model tests:
+
+```powershell
+$env:RUN_OLLAMA_TESTS = "1"
+python -m pytest tests/test_ollama_integration.py -v
+```
+
+On Bash, use `RUN_OLLAMA_TESTS=1 python -m pytest tests/test_ollama_integration.py -v`.
+These tests use exactly `qwen3.5:4b-q4_K_M` and cover plain calls, typed output with
+named types, and actual tool execution with and without structured agent output,
+including an explicit `output=` override. Tool codes are generated randomly so
+the agent must obtain them from the tool rather than infer them from the prompt.
+Set `OLLAMA_BASE_URL` to use another server. When enabled, the tests fail with a
+clear error if the server is unavailable or the model has not been downloaded.
 
 ## Output Schema DSL
 
