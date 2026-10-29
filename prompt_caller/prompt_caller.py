@@ -1,6 +1,8 @@
 import os
 import re
 import ast
+from copy import deepcopy
+from inspect import getattr_static
 from typing import Any, Optional, get_args, get_origin, Literal
 
 import requests
@@ -9,7 +11,7 @@ from dotenv import load_dotenv
 from jinja2 import Template
 from langgraph.types import Command
 from langchain_core.tools import tool
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain.agents import create_agent
 from langchain.agents.middleware import wrap_tool_call
 from langchain_openai import ChatOpenAI
@@ -423,20 +425,70 @@ class PromptCaller:
             named_types_cache={},
         )
 
-    def call(self, promptName, context=None):
+    def _validateMetadataTarget(self, target):
+        model_type = target if isinstance(target, type) else type(target)
+        if not issubclass(model_type, BaseModel):
+            raise TypeError(
+                "include_metadata=True requires a Pydantic BaseModel output "
+                "(including AIMessage)."
+            )
+        missing = object()
+        if (
+            "_metadata" in model_type.__private_attributes__
+            or getattr_static(target, "_metadata", missing) is not missing
+        ):
+            raise ValueError("'_metadata' is reserved for PromptCaller metadata.")
+
+    def _attachMetadata(self, response, raw_response):
+        self._validateMetadataTarget(response)
+        response_metadata = deepcopy(
+            raw_response.response_metadata if raw_response is not None else {}
+        )
+        usage_metadata = deepcopy(
+            raw_response.usage_metadata if raw_response is not None else None
+        )
+        response_id = response_metadata.get("id") or response_metadata.get("response_id")
+        # Do not attach transient attributes to objects retained in LangChain's cache.
+        response = response.model_copy()
+        response._metadata = {
+            "response_id": response_id if isinstance(response_id, str) else None,
+            "response_metadata": response_metadata,
+            "usage_metadata": usage_metadata,
+        }
+        return response
+
+    def _invokeStructuredChat(self, chat, schema, messages, include_metadata):
+        if not include_metadata:
+            return chat.with_structured_output(schema).invoke(messages)
+
+        self._validateMetadataTarget(schema)
+        result = chat.with_structured_output(schema, include_raw=True).invoke(messages)
+        # include_raw captures parsing errors; retain the existing raising behavior.
+        if result["parsing_error"] is not None:
+            raise result["parsing_error"]
+        return self._attachMetadata(result["parsed"], result["raw"])
+
+    def call(self, promptName, context=None, *, include_metadata=False):
+        """Invoke a prompt, optionally attaching non-serialized response metadata."""
         configuration, messages = self.loadPrompt(promptName, context)
         model_configuration, output, type_defs = self._splitPromptConfiguration(
             configuration
         )
 
+        if include_metadata and output and (
+            "_metadata" in output or "_metadata?" in output
+        ):
+            raise ValueError("'_metadata' is reserved for PromptCaller metadata.")
         chat = self._createChat(model_configuration)
-
         if output:
             dynamicModel = self.createPydanticModel(output, type_defs=type_defs)
-            chat = chat.with_structured_output(dynamicModel)
+            return self._invokeStructuredChat(
+                chat, dynamicModel, messages, include_metadata
+            )
 
         response = chat.invoke(messages)
-
+        if include_metadata:
+            return self._attachMetadata(response, response)
         return response
 
     def _create_media_middleware(self):
@@ -484,8 +536,16 @@ class PromptCaller:
         return handle_media_response
 
     def agent(
-        self, promptName, context=None, tools=None, output=None, allowed_steps=10
+        self,
+        promptName,
+        context=None,
+        tools=None,
+        output=None,
+        allowed_steps=10,
+        *,
+        include_metadata=False,
     ):
+        """Run an agent, optionally attaching metadata from its final model call."""
         configuration, messages = self.loadPrompt(promptName, context)
         model_configuration, prompt_output, type_defs = (
             self._splitPromptConfiguration(configuration)
@@ -495,8 +555,6 @@ class PromptCaller:
         dynamicOutput = None
         if output is None and prompt_output is not None:
             dynamicOutput = prompt_output
-
-        chat = self._createChat(model_configuration)
 
         # Prepare tools
         if tools is None:
@@ -508,9 +566,17 @@ class PromptCaller:
         if output:
             response_format = output
         elif dynamicOutput:
+            if include_metadata and (
+                "_metadata" in dynamicOutput or "_metadata?" in dynamicOutput
+            ):
+                raise ValueError("'_metadata' is reserved for PromptCaller metadata.")
             response_format = self.createPydanticModel(
                 dynamicOutput, type_defs=type_defs
             )
+
+        if include_metadata and response_format is not None:
+            self._validateMetadataTarget(response_format)
+        chat = self._createChat(model_configuration)
 
         # Ollama's schema constraint interferes with tool calls in the same turn.
         separate_output = (
@@ -552,9 +618,19 @@ class PromptCaller:
                     "results above. Do not add information or call tools."
                 )
             )
-            return chat.with_structured_output(response_format).invoke(final_messages)
+            return self._invokeStructuredChat(
+                chat, response_format, final_messages, include_metadata
+            )
 
         # Return structured output or last message
         if response_format and result.get("structured_response"):
-            return result["structured_response"]
-        return result["messages"][-1]
+            response = result["structured_response"]
+        else:
+            response = result["messages"][-1]
+        if include_metadata:
+            raw_response = next(
+                (msg for msg in reversed(result["messages"]) if isinstance(msg, AIMessage)),
+                None,
+            )
+            return self._attachMetadata(response, raw_response)
+        return response

@@ -51,19 +51,24 @@ def _configuration(base_url, **metadata):
     )
 
 
-def test_call_plain(prompt_caller, write_prompt, ollama_url):
+@pytest.mark.parametrize("include_metadata", [False, True])
+def test_call_plain(prompt_caller, write_prompt, ollama_url, include_metadata):
     write_prompt(
         "ollama_plain",
         _configuration(ollama_url),
         "<user>Reply with exactly COURSE_OK.</user>",
     )
-    response = prompt_caller.call("ollama_plain")
+    response = prompt_caller.call("ollama_plain", include_metadata=include_metadata)
     assert isinstance(response, AIMessage)
     assert "COURSE_OK" in response.content
     assert response.response_metadata["model"] == MODEL
+    _assert_metadata(response, include_metadata)
 
 
-def test_call_structured_with_named_types(prompt_caller, write_prompt, ollama_url):
+@pytest.mark.parametrize("include_metadata", [False, True])
+def test_call_structured_with_named_types(
+    prompt_caller, write_prompt, ollama_url, include_metadata
+):
     write_prompt(
         "ollama_structured",
         _configuration(
@@ -87,16 +92,20 @@ Include one step with expression '7 + 5.5' and its numeric value.
 </user>
 """,
     )
-    response = prompt_caller.call("ollama_structured")
+    response = prompt_caller.call("ollama_structured", include_metadata=include_metadata)
     assert response.result == 12.5
     assert response.confidence == "high"
     assert len(response.steps) == 1
     assert response.steps[0].expression == "7 + 5.5"
     assert response.steps[0].value == 12.5
+    _assert_metadata(response, include_metadata)
 
 
 @pytest.mark.parametrize("output_mode", ["none", "prompt", "explicit"])
-def test_agent_executes_tool(prompt_caller, write_prompt, ollama_url, output_mode):
+@pytest.mark.parametrize("include_metadata", [False, True])
+def test_agent_executes_tool(
+    prompt_caller, write_prompt, ollama_url, output_mode, include_metadata
+):
     calls = []
     course_code = f"QWEN-COURSE-{uuid4().hex[:8].upper()}"
 
@@ -128,6 +137,7 @@ What is the current course access code?
         "ollama_agent",
         tools=[get_course_code],
         output=CourseOutput if output_mode == "explicit" else None,
+        include_metadata=include_metadata,
     )
     assert calls, "The agent must execute the actual Python tool."
     if output_mode != "none":
@@ -141,3 +151,17 @@ What is the current course access code?
     else:
         assert isinstance(response, AIMessage)
         assert course_code in response.content
+    _assert_metadata(response, include_metadata)
+
+
+def _assert_metadata(response, include_metadata):
+    if not include_metadata:
+        assert not hasattr(response, "_metadata")
+        return
+    provider_metadata = response._metadata["response_metadata"]
+    assert response._metadata["response_id"] == (
+        provider_metadata.get("id") or provider_metadata.get("response_id")
+    )
+    assert response._metadata["response_metadata"]["model"] == MODEL
+    assert response._metadata["usage_metadata"]["total_tokens"] > 0
+    assert "_metadata" not in response.model_dump()
