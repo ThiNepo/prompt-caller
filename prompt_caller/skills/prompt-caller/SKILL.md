@@ -75,6 +75,24 @@ Optional fields:
   - tool-enabled agent flow
   - explicit `output` argument overrides prompt `output`
 
+## Response Metadata
+
+- `call(..., include_metadata=True)` and `agent(..., include_metadata=True)` keep
+  the response type and attach `_metadata` to a shallow model copy, leaving cached
+  responses untouched; the default is `False`.
+- `_metadata` contains `response_id` (`str` or `None`), `response_metadata` (dict),
+  and `usage_metadata` (dict or `None`). Metadata dictionaries are independent copies.
+- This option is a Python keyword argument, not prompt frontmatter. It adds no
+  model calls and leaves schema, serialization, and parsing errors unchanged.
+- Metadata is not included by `model_dump()` or JSON serialization. Add it
+  explicitly to application payloads when needed.
+- The source is the last AI message, or the final formatting call for Ollama
+  agents with tools and a schema, not accumulated agent usage.
+- Use Pydantic model classes for explicit `output=` with metadata enabled;
+  other schema formats are rejected. `_metadata` is reserved and conflicts raise
+  an error instead of overwriting user data. Never substitute a LangChain message
+  ID for a missing provider response ID.
+
 ## Prompt Writing Checklist
 
 - Keep system instruction focused on behavior and constraints.

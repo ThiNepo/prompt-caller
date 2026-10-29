@@ -232,6 +232,65 @@ In this example:
 - The response includes the processed result based on the prompt and tool execution.
 
 
+## Response Metadata
+
+Both `call()` and `agent()` accept the keyword-only option `include_metadata=False`.
+By default their return values and error behavior are unchanged. Set it to `True`
+to attach a reserved `_metadata` attribute to the returned object, without a wrapper:
+
+```python
+response = ai.call(
+    "sample-5.2-complete",
+    {"expression": "(3 + 8) / 9"},
+    include_metadata=True,
+)
+print(response.result)  # Same access as before
+print(response._metadata["response_id"])
+print(response._metadata["response_metadata"])
+print(response._metadata["usage_metadata"])
+
+response = ai.agent(
+    "sample-agent",
+    {"expression": "3+8/9"},
+    tools=[evaluate_expression],
+    include_metadata=True,
+)
+print(response._metadata)
+```
+
+The attribute always contains these three keys:
+
+| Key | Value |
+| --- | --- |
+| `response_id` | The provider's `id` or `response_id` from response metadata, or `None`. LangChain-generated message IDs are not used as a fallback. |
+| `response_metadata` | An independent deep copy of the provider metadata exposed by LangChain, or `{}` if unavailable. |
+| `usage_metadata` | An independent deep copy of LangChain's normalized token usage, or `None` if unavailable. |
+
+The existing object type, prompt schema, `model_dump()`, and `model_dump_json()`
+are preserved. When enabled, metadata is attached to a shallow model copy so cached
+responses remain untouched; object identity is not preserved in this mode.
+`_metadata` is not included in those serialized results. Include it
+explicitly when constructing a payload if you need to persist the metadata.
+The option belongs in the Python call, not the prompt frontmatter, and does not
+add model requests or switch provider APIs. IDs are not necessarily `resp_...`;
+for example, OpenAI Chat Completions can return `chatcmpl-...` IDs.
+
+For ordinary agents, the source is the last `AIMessage`, even when followed by a
+tool message. If the last AI message has no provider ID, `response_id` is `None`;
+an earlier response's ID is not substituted. For Ollama agents with tools and a
+schema, the source is the final structured-formatting call. These values do not
+represent accumulated usage across agent calls, tools, or retries.
+
+Metadata attachment supports Pydantic `BaseModel` outputs, including `AIMessage`.
+When using `agent(output=...)` with this option, pass a Pydantic model class.
+Other schema formats (such as `TypedDict`, dataclasses, JSON Schema dictionaries,
+and explicit LangChain strategy objects) are rejected before the agent runs;
+their existing behavior is unchanged when the option is disabled.
+`_metadata` is reserved: conflicting prompt fields, private attributes, properties,
+or existing instance attributes raise `ValueError` rather than being overwritten.
+Known schema conflicts are checked before model invocation. Unexpected return
+types raise `TypeError`. Parsing and provider errors continue to propagate.
+
 ## How It Works
 
 1. **\_loadPrompt:** Loads the prompt file, splits the YAML header from the body, and parses them.
@@ -282,6 +341,7 @@ These tests use exactly `qwen3.5:4b-q4_K_M` and cover plain calls, typed output 
 named types, and actual tool execution with and without structured agent output,
 including an explicit `output=` override. Tool codes are generated randomly so
 the agent must obtain them from the tool rather than infer them from the prompt.
+Each real-model scenario runs with response metadata disabled and enabled.
 Set `OLLAMA_BASE_URL` to use another server. When enabled, the tests fail with a
 clear error if the server is unavailable or the model has not been downloaded.
 
